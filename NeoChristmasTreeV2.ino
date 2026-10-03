@@ -66,6 +66,13 @@ const uint8_t ROOMLIGHT  = 02; // analog read of ambient brightness
 
 #define APHOSTNAME "ChristmasTree4"
 
+// ---- AUTO-BRIGHTNESS via LDR (IO2: LDR to VCC, 100k to GND) ----
+#define LDR_DARK          1000   // ADC value in darkness  → adjust!
+#define LDR_BRIGHT        3500   // ADC value in bright light → adjust!
+#define AUTO_BR_MIN           3  // LED brightness in darkness  (0–255)
+#define AUTO_BR_MAX         255  // LED brightness in full light (0–255)
+#define AUTO_BR_INTERVAL    500  // measurement interval in ms
+
 // ---- GLOBAL ----
 Preferences preferences;                  // stores IR codes, pattern ID and brightness
 int gPatStep = 0;                         // current animation step of the selected pattern
@@ -80,7 +87,26 @@ Adafruit_NeoPixel strip(LED_COUNT,
                         LED_PIN,
                         NEO_GRB + NEO_KHZ800);
 int gBrightness = BRIGHTNESS;             // user-set maximum brightness (IR/Preferences)
+unsigned long gLastLdrCheck = 0;          // timestamp of the last LDR measurement
 unsigned int gIRcodes[12];               // 12 IR codes: pattern 0–7, off, on, darker, brighter
+
+
+/*
+ * Reads the LDR at ROOMLIGHT and adjusts the strip brightness to the ambient light.
+ * gBrightness (set via IR) acts as an upper limit — manual dimming stays in effect.
+ */
+void updateAutoBrightness() {
+  unsigned long now = millis();
+  if (now - gLastLdrCheck < AUTO_BR_INTERVAL) return;
+  gLastLdrCheck = now;
+
+  int raw    = analogRead(ROOMLIGHT);
+  int clamped = constrain(raw, LDR_DARK, LDR_BRIGHT);
+  int autoBr  = map(clamped, LDR_DARK, LDR_BRIGHT, AUTO_BR_MIN, AUTO_BR_MAX);
+  autoBr      = constrain(autoBr, AUTO_BR_MIN, gBrightness);
+  strip.setBrightness(autoBr);
+  serialPrintf("ROOMLIGHT=%d autoBr=%d\n", raw, autoBr);
+}
 
 
 // little function to emulate power-off switching the voltage regulator (double-click)
@@ -200,4 +226,6 @@ void loop() {
     powerOff();
     serialPrintf( "USB5VSENSE %d --> should power off!\n", analogRead(USB5VSENSE));
   }
+
+  updateAutoBrightness();
 }
