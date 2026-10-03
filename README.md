@@ -43,9 +43,8 @@ controlled by an IR remote or a browser-based pattern editor.
 - `docs/manual/` — user manual (PDF)
 - `docs/system/` — system documentation (PDF; describes an earlier hardware
   revision, kept for reference)
-- `docs/Leiterplatten/` — KiCad sources and gerbers for the control board
-  and the two wing PCBs
-- `docs/` — main control board schematic and PCB renders
+- `docs/Leiterplatten/` — KiCad sources, gerbers, schematic and front/back
+  PCB renders for the control board and the two wing PCBs
 
 ## Building
 
