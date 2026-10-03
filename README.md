@@ -4,6 +4,8 @@ An ESP32-powered Christmas tree ornament built from two interlocking,
 fir-tree-shaped PCBs, lit by 66 individually addressable WS2812 LEDs and
 controlled by an IR remote or a browser-based pattern editor.
 
+![NeoChristmasTree lit up, with remote](docs/Bilder/20261003_232312.jpg)
+
 ## Highlights
 
 - **66x WS2812 LEDs** across 4 wings (2 PCBs plugged together at a right
@@ -47,6 +49,7 @@ controlled by an IR remote or a browser-based pattern editor.
 - `docs/Leiterplatten/` — KiCad sources, gerbers, schematic and front/back
   PCB renders for the control board and the two wing PCBs
 - `docs/Gehäuse/` — STL files for the 3D-printed base housing
+- `docs/Bilder/` — photos and a short clip of the finished tree
 
 ## Building
 
