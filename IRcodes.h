@@ -1,5 +1,5 @@
 
-#define MAXIRCODES 12
+#define MAXIRCODES 13
 
 unsigned int defaultIRcodes [MAXIRCODES] = {
   0xFB04FD02,
@@ -13,13 +13,14 @@ unsigned int defaultIRcodes [MAXIRCODES] = {
   0xF906FD02,
   0xF50AFD02,
   0xEB14FD02,
-  0xE916FD02
+  0xE916FD02,
+  0xFE01FD02
 };
 
 
 /*
  * Golden Power Ningbo
- *
+ * 
  * ON       = FF00FD02
  * Timer    = FE01FD02
  * OFF      = FD02FD02
@@ -36,6 +37,6 @@ unsigned int defaultIRcodes [MAXIRCODES] = {
  * 8        = EE11FD02
  * dark     = EB14FD02
  * light    = E916FD02
- *
+ * 
  */
-
+ 

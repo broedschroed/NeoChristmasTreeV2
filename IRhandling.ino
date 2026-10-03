@@ -3,10 +3,11 @@
 /*
  * checkIR()
  * Evaluates received IR commands.
- * IR codes 0–7 select the pattern directly by position in gPatternIds.
- * IR code 8: Off (battery: shut down, USB: offpattern).
- * IR code 9: On (loads last saved pattern via getPreferences).
- * IR codes 10/11: brightness darker/brighter.
+ * IR codes   0–7 select the pattern directly by position in gPatternIds.
+ * IR code    8: Off (battery: shut down, USB: offpattern).
+ * IR code    9: On (loads last saved pattern via getPreferences).
+ * IR codes   10/11: brightness darker/brighter.
+ * IR code    12: Timer (see timerHandling.ino).
  */
 void checkIR() {
   if (IrReceiver.decode()) {
@@ -29,6 +30,7 @@ void checkIR() {
 
     // IR code 8: turn off
     if (IrReceiver.decodedIRData.command == gIRcodes[8]) {
+      resetTimerState();  // manually turning off makes a running sleep timer moot
       if (analogRead(USB5VSENSE) < 1000) {
         powerOff();
       } else {
@@ -39,6 +41,7 @@ void checkIR() {
 
     // IR code 9: turn on
     if (IrReceiver.decodedIRData.command == gIRcodes[9]) {
+      resetTimerState();  // manually turning on makes a running sleep timer moot
       getPreferences();
     }
 
@@ -56,6 +59,11 @@ void checkIR() {
       serialPrintf("gBrightness = %d\n", gBrightness);
     }
 
+    // IR code 12: Timer (increase sleep timer level / cancel at level 8)
+    if (IrReceiver.decodedIRData.command == gIRcodes[12]) {
+      handleTimerButton();
+    }
+
     IrReceiver.resume();
 
     if (strcmp(gSelectedPatternId, "offpattern") != 0) {
@@ -70,15 +78,15 @@ void checkIR() {
  * Read IR-codes from Sender sequential and store it in flash
  * The received codes must be thre times the same. This is necessary, because
  * the cheep chinese remote-controls someteimes ar very creative in sending garbage :(
- * The sequence is: pattern 0 to 7, off, on, darker, lighter
+ * The sequence is: pattern 0 to 7, off, on, darker, lighter, timer
  * Only when all codes are learned, they ar stored in flash
  * The first LED in tree indicates, that learning is in progress.
- * The 4th to 6th LED in tree show, when a code is learned.
+ * Levels 4 to 6 of the tree (all 4 wings) show which code is currently being learned.
  * After all codes are learned the tree starts normal.
  */
 void learnIR () {
   unsigned int tempCode;      // memory for received IR-command, used for validating
-
+  
   // first LED indicates learning
   strip.setPixelColor(0,strip.Color(255,0,0));
   strip.show();
@@ -86,7 +94,7 @@ void learnIR () {
   int codepos = 0;            // id of IR-code that is processed for learning
   while (codepos<MAXIRCODES) {
     // if something is received
-    if (IrReceiver.decode()) {
+    if (IrReceiver.decode()) { 
       // validate, that the received code is not the sended rest of the command before
       if (IrReceiver.decodedIRData.command != tempCode) {
         IrReceiver.printIRResultShort(&Serial);               // debugging
@@ -112,36 +120,44 @@ void learnIR () {
                 serialPrintf("Accepted: %d at Position %d", tempCode, codepos);
                 // save the new IR-code an show step an tree
                 gIRcodes[codepos] = IrReceiver.decodedIRData.command;
-                switch(codepos) {
-                  case  0 : strip.setPixelColor(3,strip.Color(0,255,0)); break;
-                  case  1 : strip.setPixelColor(4,strip.Color(0,255,0)); break;
-                  case  2 : strip.setPixelColor(5,strip.Color(0,255,0)); break;
-                  case  3 : strip.setPixelColor(3,strip.Color(0,255,255));
-                            strip.setPixelColor(4,strip.Color(0,0,0));
-                            strip.setPixelColor(5,strip.Color(0,0,0)); break;
-                  case  4 : strip.setPixelColor(4,strip.Color(0,255,255)); break;
-                  case  5 : strip.setPixelColor(5,strip.Color(0,255,255)); break;
-                  case  6 : strip.setPixelColor(3,strip.Color(255,255,0));
-                            strip.setPixelColor(4,strip.Color(0,0,0));
-                            strip.setPixelColor(5,strip.Color(0,0,0)); break;
-                  case  7 : strip.setPixelColor(4,strip.Color(255,255,0)); break;
-                  case  8 : strip.setPixelColor(5,strip.Color(255,255,0)); break;
-                  case  9 : strip.setPixelColor(3,strip.Color(255,0,255));
-                            strip.setPixelColor(4,strip.Color(0,0,0));
-                            strip.setPixelColor(5,strip.Color(0,0,0)); break;
-                  case 10 : strip.setPixelColor(4,strip.Color(255,0,255)); break;
-                  case 11 : strip.setPixelColor(5,strip.Color(255,0,255)); break;
+
+                // Show progress as a full level (4-6) instead of a single LED: 4 groups of
+                // 3 codes each (green/cyan/yellow/magenta fill level 4, then 4+5, then 4+5+6);
+                // the 13th code (timer) has no group left and is shown fully white.
+                int group      = codepos / 3;   // 0=green, 1=cyan, 2=yellow, 3=magenta, 4=timer
+                int posInGroup = codepos % 3;   // 0,1,2 -> level 4,5,6
+                uint32_t groupColor;
+                switch (group) {
+                  case 0:  groupColor = strip.Color(0, 255, 0);     break;
+                  case 1:  groupColor = strip.Color(0, 255, 255);   break;
+                  case 2:  groupColor = strip.Color(255, 255, 0);   break;
+                  case 3:  groupColor = strip.Color(255, 0, 255);   break;
+                  default: groupColor = strip.Color(255, 255, 255); break;  // timer code
+                }
+
+                if (codepos < 12) {
+                  if (posInGroup == 0) {
+                    // new group: reset the fill of levels 5/6 from the previous group
+                    setLevelColor(5, strip.Color(0, 0, 0));
+                    setLevelColor(6, strip.Color(0, 0, 0));
+                  }
+                  setLevelColor(4 + posInGroup, groupColor);
+                } else {
+                  // 13th code (timer): levels 4-6 together in white
+                  setLevelColor(4, groupColor);
+                  setLevelColor(5, groupColor);
+                  setLevelColor(6, groupColor);
                 }
                 strip.show();
                 delay(500);
-                // let head of tree blink :)
-                strip.setPixelColor(64,strip.Color(255,255,255)); strip.show();
+                // let head of tree blink, on both tip-LEDs :)
+                strip.setPixelColor(64,strip.Color(255,255,255)); strip.setPixelColor(65,strip.Color(255,255,255)); strip.show();
                 delay(500);
-                strip.setPixelColor(64,strip.Color(0,0,0)); strip.show();
+                strip.setPixelColor(64,strip.Color(0,0,0)); strip.setPixelColor(65,strip.Color(0,0,0)); strip.show();
                 delay(500);
-                strip.setPixelColor(64,strip.Color(255,255,255)); strip.show();
+                strip.setPixelColor(64,strip.Color(255,255,255)); strip.setPixelColor(65,strip.Color(255,255,255)); strip.show();
                 delay(500);
-                strip.setPixelColor(64,strip.Color(0,0,0)); strip.show();
+                strip.setPixelColor(64,strip.Color(0,0,0)); strip.setPixelColor(65,strip.Color(0,0,0)); strip.show();
                 // learn again the next code
                 codepos++;
               }

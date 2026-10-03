@@ -44,6 +44,7 @@
 #include "IRhandling.ino"           // learn and check IR-signals
 #include "myPrefHandling.ino"       // load and save used preferences
 #include "pattering.ino"            // display the patterns in their actual state on LEDs
+#include "timerHandling.ino"        // sleep timer via the remote's "Timer" button
 */
 
 const uint8_t LED_COUNT  = 66; // how much LEDs are on the tree?
@@ -88,7 +89,17 @@ Adafruit_NeoPixel strip(LED_COUNT,
                         NEO_GRB + NEO_KHZ800);
 int gBrightness = BRIGHTNESS;             // user-set maximum brightness (IR/Preferences)
 unsigned long gLastLdrCheck = 0;          // timestamp of the last LDR measurement
-unsigned int gIRcodes[12];               // 12 IR codes: pattern 0–7, off, on, darker, brighter
+unsigned int gIRcodes[13];               // 13 IR codes: pattern 0–7, off, on, darker, brighter, timer
+
+// ---- Sleep timer via the remote's "Timer" button (see timerHandling.ino) ----
+#define TIMER_MAX_LEVEL        8                 // levels 1..8 (30 minutes to 4 hours)
+#define TIMER_STEP_MS   (30UL * 60UL * 1000UL)   // 30 minutes per level
+#define TIMER_PREVIEW_MS       3000              // duration of the LED preview per button press
+
+int  gTimerLevel         = 0;      // 0 = timer inactive, 1..8 = current level
+bool gTimerPreviewActive = false;  // true during the 3s LED preview after a button press
+unsigned long gTimerPreviewUntil = 0;  // millis(), until when the preview runs
+unsigned long gTimerOffAt        = 0;  // millis(), when the tree should switch off automatically
 
 
 /*
@@ -118,8 +129,8 @@ void powerOff() {
     digitalWrite(PWRFETPIN, HIGH);
     delay(250);
     digitalWrite(PWRFETPIN, LOW);
-    delay(300);
-    Serial.println("powered off");
+    delay(300); 
+    Serial.println("powered off"); 
 }
 
 
@@ -180,15 +191,30 @@ void loop() {
   // test if an IR-command is received
   checkIR();
 
-  // Reload if the webserver or IR requested a new pattern
-  if (gNeedPatternReload) {
-    loadPatternById(gSelectedPatternId);
-    gNeedPatternReload = false;
-    gPatStep = 0;
-  }
+  // Manage sleep timer: ends the 3s LED preview, or triggers the automatic
+  // shutdown once the set time has been reached
+  updateTimerState();
 
-  // Output the current animation step of the loaded pattern to the LEDs
-  patternwork();
+  // During the timer preview (3s after a Timer button press), the tree strip is
+  // driven by renderLevelsUpTo(); patternwork() would otherwise overwrite it immediately
+  if (!gTimerPreviewActive) {
+    // Reload if the webserver or IR requested a new pattern
+    if (gNeedPatternReload) {
+      loadPatternById(gSelectedPatternId);
+      gNeedPatternReload = false;
+      gPatStep = 0;
+    }
+
+    // Output the current animation step of the loaded pattern to the LEDs
+    patternwork();
+  } else {
+    // patternwork() otherwise provides the only pacing of loop() via
+    // delay(gActivePattern.wait). Without it, loop() would run unthrottled here and
+    // sample PWRSWSENSE thousands instead of a few times per second — a brief ADC
+    // noise spike below PWRSWSENSE_THRESHOLD could then be mistaken for a power
+    // button press (timer cancel + immediate shutdown on battery power).
+    delay(100);
+  }
 
   // If the learn/mode switch is pressed: move to the next pattern and save to flash
   if (!digitalRead(SWLEARN)) {
@@ -210,6 +236,7 @@ void loop() {
 
   // Power button: toggles between offpattern and the last saved pattern
   if (analogRead(PWRSWSENSE) < PWRSWSENSE_THRESHOLD) {
+    resetTimerState();  // manually turning on/off makes a running sleep timer moot
     if (strcmp(gSelectedPatternId, "offpattern") != 0) {
       strncpy(gSelectedPatternId, "offpattern", 31);
       gNeedPatternReload = true;

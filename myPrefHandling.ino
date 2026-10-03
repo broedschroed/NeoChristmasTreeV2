@@ -21,6 +21,7 @@ void getPreferences() {
   gIRcodes[9]  = preferences.getUInt("IR0", defaultIRcodes[9]);
   gIRcodes[10] = preferences.getUInt("IRd", defaultIRcodes[10]);
   gIRcodes[11] = preferences.getUInt("IRl", defaultIRcodes[11]);
+  gIRcodes[12] = preferences.getUInt("IRt", defaultIRcodes[12]);
 
   // Load pattern ID as string (key "IRp"), fallback "randompattern"
   String savedId = preferences.getString("IRp", "randompattern");
@@ -49,6 +50,7 @@ void writePreferences() {
   preferences.putUInt("IR0", gIRcodes[9]);
   preferences.putUInt("IRd", gIRcodes[10]);
   preferences.putUInt("IRl", gIRcodes[11]);
+  preferences.putUInt("IRt", gIRcodes[12]);
 
   // Save pattern ID as string
   preferences.putString("IRp", gSelectedPatternId);
