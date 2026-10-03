@@ -29,20 +29,21 @@ controlled by an IR remote or a browser-based pattern editor.
 - VS1838B IR receiver
 - LDR for ambient-light sensing
 - FET power switch to emulate a double-click power-off on battery
-- Two interlocking fir-tree-shaped PCBs; see `docs/` for schematic and PCB
-  renders.
+- Two interlocking fir-tree-shaped PCBs ("Tannenfluegellaengs" and
+  "Tannenfluegelquer"), each carrying 32 of the 66 LEDs; KiCad sources under
+  `docs/Leiterplatten/`
+- Main control board; see `docs/` for schematic and PCB renders.
 
 ## Repository layout
 
 - `*.ino` / `*.h` — firmware (Arduino/ESP32 sketch)
 - `data/www/` — the pattern editor web UI, uploaded to the ESP32's LittleFS
   filesystem (Arduino IDE "ESP32 Sketch Data Upload" or equivalent)
-- `BEDIENUNGSANLEITUNG.md` — user manual (German)
-- `docs/manual/` — compiled versions of the user manual (PDF/DOCX/ODT)
-- `docs/system/` — system documentation
-- `docs/` — PCB renders and schematic
-- `docs/superpowers/` — design specs and implementation plans written during
-  development
+- `docs/manual/` — user manual (PDF)
+- `docs/system/` — system documentation (PDF; describes an earlier hardware
+  revision, kept for reference)
+- `docs/Leiterplatten/` — KiCad sources and gerbers for the two wing PCBs
+- `docs/` — main control board schematic and PCB renders
 
 ## Building
 
