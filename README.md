@@ -34,6 +34,7 @@ controlled by an IR remote or a browser-based pattern editor.
 - Main control board ("TannenbasisV4") carrying the ESP32, IR receiver, LDR
   and power management; KiCad sources for all three boards under
   `docs/Leiterplatten/`
+- 3D-printed base housing; STL files under `docs/Gehäuse/`
 
 ## Repository layout
 
@@ -45,6 +46,7 @@ controlled by an IR remote or a browser-based pattern editor.
   revision, kept for reference)
 - `docs/Leiterplatten/` — KiCad sources, gerbers, schematic and front/back
   PCB renders for the control board and the two wing PCBs
+- `docs/Gehäuse/` — STL files for the 3D-printed base housing
 
 ## Building
 
